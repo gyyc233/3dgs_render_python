@@ -13,45 +13,54 @@ from tqdm import tqdm
 from loguru import logger
 from math import sqrt, ceil
 
-from render_python import computeColorFromSH
-from render_python import computeCov2D, computeCov3D
+from render_python import computeColorFromSH # 球谐函数计算颜色
+from render_python import computeCov2D, computeCov3D # 计算协方差矩阵
 from render_python import transformPoint4x4, in_frustum
 from render_python import getWorld2View2, getProjectionMatrix, ndc2Pix, in_frustum
 
 
 class Rasterizer:
+    """
+    光栅化
+    """
     def __init__(self) -> None:
         pass
 
     def forward(
         self,
-        P,  # int, num of guassians
-        D,  # int, degree of spherical harmonics
-        M,  # int, num of sh base function
-        background,  # color of background, default black
-        width,  # int, width of output image
+        P,  # int, num of guassians　高斯点数量
+        D,  # int, degree of spherical harmonics 球谐函数阶数
+        M,  # int, num of sh base function　球谐函数基函数数量
+        background,  # color of background, default black 默认背景色
+        width,  # int, width of output image 
         height,  # int, height of output image
-        means3D,  # ()center position of 3d gaussian
-        shs,  # spherical harmonics coefficient
-        colors_precomp,
-        opacities,  # opacities
-        scales,  # scale of 3d gaussians
-        scale_modifier,  # default 1
-        rotations,  # rotation of 3d gaussians
-        cov3d_precomp,
-        viewmatrix,  # matrix for view transformation
-        projmatrix,  # *(4, 4), matrix for transformation, aka mvp
-        cam_pos,  # position of camera
-        tan_fovx,  # float, tan value of fovx
-        tan_fovy,  # float, tan value of fovy
-        prefiltered,
-    ) -> None:
+        means3D,  # ()center position of 3d gaussian 每个高斯点的 3D 位置（中心坐标）
+        shs,  # spherical harmonics coefficient 每个点对应的球谐系数
+        colors_precomp, # 预计算的颜色
+        opacities,  # opacities 每个高斯点的透明度
+        scales,  # scale of 3d gaussians 每个高斯点的缩放尺度
+        scale_modifier,  # default 1 缩放因子
+        rotations,  # rotation of 3d gaussians 每个高斯点的旋转矩阵
+        cov3d_precomp, # 预计算的协方差矩阵
+        viewmatrix,  # matrix for view transformation 观测变换矩阵 世界到相机
+        projmatrix,  # *(4, 4), matrix for transformation, aka mvp 投影矩阵（通常为 MVP = ModelViewProjection）
+        cam_pos,  # position of camera 相机位置
+        tan_fovx,  # float, tan value of fovx 水平视场角的正切值（用于投影计算）
+        tan_fovy,  # float, tan value of fovy 垂直视场角的正切值
+        prefiltered, # 是否已经做过预筛选
 
+    ) -> None:
+        """
+        3D 高斯光栅化的主流程函数
+        """
+
+        # 根据 FOV 计算焦距
         focal_y = height / (2 * tan_fovy)  # focal of y axis
         focal_x = width / (2 * tan_fovx)
 
         # run preprocessing per-Gaussians
         # transformation, bounding, conversion of SHs to RGB
+        # 3DGS预处理，判断是否在视野内，计算协方差矩阵，将球谐函数转为rgb等操作
         logger.info("Starting preprocess per 3d gaussian...")
         preprocessed = self.preprocess(
             P,
