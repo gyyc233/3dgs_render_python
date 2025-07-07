@@ -25,6 +25,7 @@ def in_frustum(p_orig, viewmatrix):
 
 
 def transformPoint4x4(p, matrix):
+    # 下面是将matrix矩阵按照列优先顺序平展为一维数组
     matrix = np.array(matrix).flatten(order="F")
     x, y, z = p
     transformed = np.array(
@@ -39,6 +40,9 @@ def transformPoint4x4(p, matrix):
 
 
 def transformPoint4x3(p, matrix):
+    """
+    将点进行rt变换
+    """
     matrix = np.array(matrix).flatten(order="F")
     x, y, z = p
     transformed = np.array(
@@ -75,7 +79,7 @@ def computeCov2D(mean, focal_x, focal_y, tan_fovx, tan_fovy, cov3D, viewmatrix):
     # Additionally considers aspect / scaling of viewport.
     # Transposes used to account for row-/column-major conventions.
 
-    t = transformPoint4x3(mean, viewmatrix)
+    t = transformPoint4x3(mean, viewmatrix) # 点从世界坐标变换到相机坐标
 
     limx = 1.3 * tan_fovx
     limy = 1.3 * tan_fovy
@@ -84,6 +88,7 @@ def computeCov2D(mean, focal_x, focal_y, tan_fovx, tan_fovy, cov3D, viewmatrix):
     t[0] = min(limx, max(-limx, txtz)) * t[2]
     t[1] = min(limy, max(-limy, tytz)) * t[2]
 
+    # 相机投影函数对相机空间坐标的导数
     J = np.array(
         [
             [focal_x / t[2], 0, -(focal_x * t[0]) / (t[2] * t[2])],
@@ -91,7 +96,12 @@ def computeCov2D(mean, focal_x, focal_y, tan_fovx, tan_fovy, cov3D, viewmatrix):
             [0, 0, 0],
         ]
     )
+
+    print("J:\n",J)
+
+    # 3D 协方差映射到屏幕空间
     W = viewmatrix[:3, :3]
+    print("W:\n",W)
     T = np.dot(J, W)
 
     cov = np.dot(T, cov3D)
@@ -100,8 +110,12 @@ def computeCov2D(mean, focal_x, focal_y, tan_fovx, tan_fovy, cov3D, viewmatrix):
     # Apply low-pass filter
     # Every Gaussia should be at least one pixel wide/high
     # Discard 3rd row and column
+    # 低通滤波器（防锯齿）
     cov[0, 0] += 0.3
     cov[1, 1] += 0.3
+    print("computeCov2D:\n",cov)
+
+    # 返回xx,xy,yy 协方差矩阵是对称矩阵
     return [cov[0, 0], cov[0, 1], cov[1, 1]]
 
 

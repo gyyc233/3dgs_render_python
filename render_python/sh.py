@@ -33,9 +33,13 @@
 
 import numpy as np
 
+# 球谐函数（Spherical Harmonics, SH）的归一化系数
+# 用于将球谐系数转换为实际光照颜色。它们是预先计算好的常数
 
-SH_C0 = 0.28209479177387814
-SH_C1 = 0.4886025119029199
+SH_C0 = 0.28209479177387814 # 常数项（环境光）
+SH_C1 = 0.4886025119029199 # 线性项（方向光）分别代表 y, z, x 方向的线性光照变化
+
+# 二次项（更精细的方向变化）用于重建更复杂的光照分布，比如漫反射表面的二阶光照效果
 SH_C2 = [
     1.0925484305920792,
     -1.0925484305920792,
@@ -43,6 +47,8 @@ SH_C2 = [
     -1.0925484305920792,
     0.5462742152960396,
 ]
+
+# 三次项（高阶细节）更高的阶数能表达更复杂的光照信息，但也会引入噪声或过拟合风险
 SH_C3 = [
     -0.5900435899266435,
     2.890611442640554,
@@ -55,20 +61,32 @@ SH_C3 = [
 
 
 def computeColorFromSH(deg, pos, campos, sh):
+    """
+    Compute the color of a point from spherical harmonics coefficients
+    :param deg: degree of the spherical harmonics 球谐函数的阶数(degree)，决定光照复杂度
+    :param pos: 3D point position 3D 点的位置
+    :param campos: camera position 相机位置，用于计算观察方向
+    :param sh: spherical harmonics coefficients 球谐系数数组，每个通道对应 RGB
+    :return: color of the point
+    """
     # The implementation is loosely based on code for
     # "Differentiable Point-Based Radiance Fields for
     # Efficient View Synthesis" by Zhang et al. (2022)
 
+    # 从相机指向当前点的方向向量，并归一化为单位向量
     dir = pos - campos
     dir = dir / np.linalg.norm(dir)
 
+    # 0阶，对环境光的建模，与方向无关
     result = SH_C0 * sh[0]
 
     if deg > 0:
         x, y, z = dir
+        # 1阶，对沿 x/y/z 方向的线性光照的建模，注意符号 - + -
         result = result - SH_C1 * y * sh[1] + SH_C1 * z * sh[2] - SH_C1 * x * sh[3]
 
         if deg > 1:
+            # 2jie 构造二阶组合项
             xx = x * x
             yy = y * y
             zz = z * z
@@ -85,6 +103,7 @@ def computeColorFromSH(deg, pos, campos, sh):
             )
 
             if deg > 2:
+                # 3阶
                 result = (
                     result
                     + SH_C3[0] * y * (3.0 * xx - yy) * sh[9]
@@ -95,7 +114,10 @@ def computeColorFromSH(deg, pos, campos, sh):
                     + SH_C3[5] * z * (xx - yy) * sh[14]
                     + SH_C3[6] * x * (xx - 3.0 * yy) * sh[15]
                 )
+    
+    # 加上 0.5 是为了补偿某些 SH 数据集的归一化偏移，另外值被限制在0-1
     result += 0.5
+
     return np.clip(result, a_min=0, a_max=1)
 
 

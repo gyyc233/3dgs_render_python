@@ -12,6 +12,9 @@ import numpy as np
 
 
 def getWorld2View2(R, t, translate=np.array([0.0, 0.0, 0.0]), scale=1.0):
+    """
+    观测变换，世界到相机
+    """
     Rt = np.zeros((4, 4))
     Rt[:3, :3] = R.transpose()
     Rt[:3, 3] = t
@@ -26,6 +29,9 @@ def getWorld2View2(R, t, translate=np.array([0.0, 0.0, 0.0]), scale=1.0):
 
 
 def getProjectionMatrix(znear, zfar, fovX, fovY):
+    """
+    投影变换=正交投影*透视投影,锥体空间变换到齐次裁剪空间
+    """
     tanHalfFovY = math.tan((fovY / 2))
     tanHalfFovX = math.tan((fovX / 2))
 
