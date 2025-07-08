@@ -260,24 +260,30 @@ class Rasterizer:
                         xy[1] - pixf[1],
                     ]  # distance from center of pixel
 
-                    # 根据 EWA Splatting 方法计算该高斯在当前像素处的指数衰减项 power
+                    # 根据 EWA Splatting 方法计算该2D高斯在当前像素处的指数衰减项 power
                     # 若大于 0 表示不在有效范围内，跳过
+                    # 这里是2d高斯分布
                     con_o = conic_opacity[idx]
                     power = (
                         -0.5 * (con_o[0] * d[0] * d[0] + con_o[2] * d[1] * d[1])
                         - con_o[1] * d[0] * d[1]
                     )
+                    # 交叉项感觉应该是正号
+                    # power = (
+                    #     -0.5 * (con_o[0] * d[0] * d[0] + con_o[2] * d[1] * d[1])
+                    #     + con_o[1] * d[0] * d[1]
+                    # )
                     if power > 0:
                         continue
 
                     # Eq. (2) from 3D Gaussian splatting paper.
                     # Compute color
-                    # 计算透明度 alpha
+                    # 计算2d高斯的不透明度 alpha
                     alpha = min(0.99, con_o[3] * np.exp(power))
                     if alpha < 1 / 255:
                         continue
 
-                    # 如果剩余透明度 T 经过当前高斯后几乎完全遮挡，则提前跳出循环，后续高斯不可见
+                    # 如果剩余透明度 test_T 经过当前高斯后几乎完全遮挡，则提前跳出循环，后续高斯不可见
                     test_T = T * (1 - alpha)
                     if test_T < 0.0001:
                         break
@@ -286,7 +292,7 @@ class Rasterizer:
                     # 将当前高斯的颜色乘以透明度 alpha 和当前累计透明因子 T，并叠加到当前像素颜色 C 上，更新剩余透明度 T
                     color = features[idx]
                     for ch in range(3):
-                        C[ch] += color[ch] * alpha * T # T 没有被遮挡的概率，alpha 是高斯不透明度，color[ch] 是球谐函数模型颜色
+                        C[ch] += color[ch] * alpha * T # T 没有被遮挡的概率，alpha 是2D高斯不透明度，color[ch] 是球谐函数模型颜色
 
                     T = test_T
 
